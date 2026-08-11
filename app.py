@@ -184,7 +184,7 @@ def empty_state(title="No optimization result", subtitle="Run the optimizer to p
 # SIDEBAR
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown('<div class="brand"><div class="brand-name">BAJAJ MUKAND</div><div class="brand-sub">Alloy Steel Group • Hospet Plant</div><div class="brand-jv">Kalyani Steels × Mukand</div></div>',unsafe_allow_html=True)
+    st.markdown('<div class="brand"><div class="brand-name">HOSPET STEELS LIMITED</div><div class="brand-sub">Alloy Steel Group • Ginigera</div><div class="brand-jv">Kalyani Steels × Mukand</div></div>',unsafe_allow_html=True)
     nav_groups=[("WORKSPACE",[("◉","Dashboard")]),("OPERATIONS",[("▦","RM Stock"),("◈","Optimization Results"),("⚙","Manual Adjustment")]),("ANALYSIS",[("◌","Burden Composition"),("₹","Cost Composition"),("◇","What-if Analysis"),("△","Bottleneck Analysis")]),("REPORTING",[("▤","Reports")]),("SYSTEM",[("⇧","Upload & Settings")])]
     for heading,items in nav_groups:
         st.markdown(f'<div class="nav-head">{heading}</div>',unsafe_allow_html=True)
