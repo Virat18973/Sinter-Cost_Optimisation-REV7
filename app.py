@@ -146,17 +146,75 @@ def apply_editor_changes(ed):
     changed=False
     for _,r in ed.iterrows():
         m=r["Material"]
-        p=float(r["Price (₹/t)"]); stock=float(r["RM Stock (t)"]); av=bool(r["Available"])
-        if p!=float(st.session_state.df.loc[m,"Price_Rs_t"]):st.session_state.df.loc[m,"Price_Rs_t"]=p;changed=True
-        if stock!=float(st.session_state.df.loc[m,"Available_Tonnes"]):st.session_state.df.loc[m,"Available_Tonnes"]=stock;changed=True
-        if av!=bool(st.session_state.availability.get(m,True)):st.session_state.availability[m]=av;changed=True
-    if changed:st.session_state.inputs_changed=True
+        p=float(r["Price (₹/t)"])
+        stock=float(r["RM Stock (t)"])
+        tech_max=float(r["Tech Max (t/d)"])
+        av=bool(r["Available"])
+
+        if p!=float(st.session_state.df.loc[m,"Price_Rs_t"]):
+            st.session_state.df.loc[m,"Price_Rs_t"]=p
+            changed=True
+
+        if stock!=float(st.session_state.df.loc[m,"Available_Tonnes"]):
+            st.session_state.df.loc[m,"Available_Tonnes"]=stock
+            changed=True
+
+        if tech_max!=float(st.session_state.df.loc[m,"Tech_Max"]):
+            st.session_state.df.loc[m,"Tech_Max"]=tech_max
+            changed=True
+
+        if av!=bool(st.session_state.availability.get(m,True)):
+            st.session_state.availability[m]=av
+            changed=True
+
+    if changed:
+        st.session_state.inputs_changed=True
 
 def commercial_editor(key):
     rows=[]
     for m in st.session_state.df.index:
-        rows.append({"Material":m,"Group":GROUP_LABEL.get(st.session_state.df.loc[m,"Group"],st.session_state.df.loc[m,"Group"]),"Available":bool(st.session_state.availability.get(m,True)),"Price (₹/t)":float(st.session_state.df.loc[m,"Price_Rs_t"]),"RM Stock (t)":float(st.session_state.df.loc[m,"Available_Tonnes"]),"Tech Max":float(st.session_state.df.loc[m,"Tech_Max"])})
-    ed=st.data_editor(pd.DataFrame(rows),hide_index=True,use_container_width=True,height=370,key=key,disabled=["Material","Group","Tech Max"],column_config={"Available":st.column_config.CheckboxColumn("Availability",help="Turn OFF to exclude material from optimization."),"Price (₹/t)":st.column_config.NumberColumn("Price ₹/t",min_value=0,step=1,format="₹ %.0f"),"RM Stock (t)":st.column_config.NumberColumn("RM Stock t",min_value=0,step=100,format="%.0f"),"Tech Max":st.column_config.NumberColumn("Tech Max",format="%.0f")})
+        rows.append({
+            "Material":m,
+            "Group":GROUP_LABEL.get(st.session_state.df.loc[m,"Group"],st.session_state.df.loc[m,"Group"]),
+            "Available":bool(st.session_state.availability.get(m,True)),
+            "Price (₹/t)":float(st.session_state.df.loc[m,"Price_Rs_t"]),
+            "RM Stock (t)":float(st.session_state.df.loc[m,"Available_Tonnes"]),
+            "Tech Max (t/d)":float(st.session_state.df.loc[m,"Tech_Max"])
+        })
+
+    ed=st.data_editor(
+        pd.DataFrame(rows),
+        hide_index=True,
+        use_container_width=True,
+        height=370,
+        key=key,
+        disabled=["Material","Group"],
+        column_config={
+            "Available":st.column_config.CheckboxColumn(
+                "Availability",
+                help="Turn OFF to exclude material from optimization."
+            ),
+            "Price (₹/t)":st.column_config.NumberColumn(
+                "Price ₹/t",
+                min_value=0,
+                step=1,
+                format="₹ %.0f"
+            ),
+            "RM Stock (t)":st.column_config.NumberColumn(
+                "RM Stock t",
+                min_value=0,
+                step=100,
+                format="%.0f"
+            ),
+            "Tech Max (t/d)":st.column_config.NumberColumn(
+                "Tech Max t/d ✎",
+                min_value=0,
+                step=1,
+                format="%.0f",
+                help="Editable technical maximum used as an optimizer constraint."
+            )
+        }
+    )
     apply_editor_changes(ed)
 
 def quality_panel(achieved):
@@ -184,7 +242,7 @@ def empty_state(title="No optimization result", subtitle="Run the optimizer to p
 # SIDEBAR
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown('<div class="brand"><div class="brand-name">HOSPET STEELS LIMITED</div><div class="brand-sub">Alloy Steel Group • Ginigera</div><div class="brand-jv">Kalyani Steels × Mukand</div></div>',unsafe_allow_html=True)
+    st.markdown('<div class="brand"><div class="brand-name">BAJAJ MUKAND</div><div class="brand-sub">Alloy Steel Group • Hospet Plant</div><div class="brand-jv">Kalyani Steels × Mukand</div></div>',unsafe_allow_html=True)
     nav_groups=[("WORKSPACE",[("◉","Dashboard")]),("OPERATIONS",[("▦","RM Stock"),("◈","Optimization Results"),("⚙","Manual Adjustment")]),("ANALYSIS",[("◌","Burden Composition"),("₹","Cost Composition"),("◇","What-if Analysis"),("△","Bottleneck Analysis")]),("REPORTING",[("▤","Reports")]),("SYSTEM",[("⇧","Upload & Settings")])]
     for heading,items in nav_groups:
         st.markdown(f'<div class="nav-head">{heading}</div>',unsafe_allow_html=True)
@@ -237,7 +295,7 @@ def dashboard():
 
     left,mid,right=st.columns([1.55,1.0,1.35])
     with left:
-        st.markdown('<div class="panel"><div class="panel-head"><div class="panel-title panel-accent">RAW MATERIAL COMMERCIAL INPUTS</div><span class="badge info">✎ EDITABLE</span></div><div class="control-note">Editable: <b>Price</b> • <b>RM Stock</b> • <b>Availability</b> &nbsp; | &nbsp; Read-only: Chemistry • Tech Max</div>',unsafe_allow_html=True)
+        st.markdown('<div class="panel"><div class="panel-head"><div class="panel-title panel-accent">RAW MATERIAL COMMERCIAL INPUTS</div><span class="badge info">✎ EDITABLE</span></div><div class="control-note">Editable: <b>Price</b> • <b>RM Stock</b> • <b>Tech Max</b> • <b>Availability</b> &nbsp; | &nbsp; Read-only: Chemistry • Tech Min</div>',unsafe_allow_html=True)
         commercial_editor("dashboard_editor");st.markdown('</div>',unsafe_allow_html=True)
     with mid:
         st.markdown('<div class="panel"><div class="panel-head"><div class="panel-title panel-accent">BURDEN MIX</div><span class="badge info">kg/t</span></div>',unsafe_allow_html=True)
@@ -269,10 +327,10 @@ def dashboard():
 # OTHER PAGES
 # -----------------------------------------------------------------------------
 def rm_stock():
-    page_header("RM Stock & Commercial Inputs","Control the availability, stock and price assumptions used by the optimizer.")
+    page_header("RM Stock & Commercial Inputs","Control the availability, stock, price and technical maximum assumptions used by the optimizer.")
     c1,c2,c3=st.columns(3)
     avail=sum(bool(v) for v in st.session_state.availability.values());total=len(st.session_state.df); low=sum(float(st.session_state.df.loc[m,"Available_Tonnes"])<1000 for m in st.session_state.df.index)
-    for col,title,val,sub,cl in [(c1,"MATERIALS AVAILABLE",f"{avail}/{total}","Availability gate","kpi-green"),(c2,"LOW STOCK ITEMS",str(low),"Below 1,000 t reference","kpi-amber"),(c3,"EDIT MODE","ACTIVE","Price + stock + availability","kpi-steel")]:
+    for col,title,val,sub,cl in [(c1,"MATERIALS AVAILABLE",f"{avail}/{total}","Availability gate","kpi-green"),(c2,"LOW STOCK ITEMS",str(low),"Below 1,000 t reference","kpi-amber"),(c3,"EDIT MODE","ACTIVE","Price + stock + Tech Max + availability","kpi-steel")]:
         with col: st.markdown(f'<div class="kpi {cl}"><div class="kpi-label">{title}</div><div class="kpi-value">{val}</div><div class="kpi-sub">{sub}</div></div>',unsafe_allow_html=True)
     st.write("");st.markdown('<div class="panel"><div class="panel-head"><div class="panel-title">COMMERCIAL MASTER</div><span class="badge info">✎ Editable inputs</span></div>',unsafe_allow_html=True);commercial_editor("rm_editor");st.markdown('</div>',unsafe_allow_html=True)
     if st.session_state.inputs_changed: st.markdown('<div class="notice notice-warn" style="margin-top:.5rem">Inputs changed — run the optimizer to apply them.</div>',unsafe_allow_html=True)
