@@ -6,7 +6,7 @@ from pathlib import Path
 
 from optimizer import (
     TARGETS, FE_LOWER, FE_UPPER,
-    get_default_chemistry, load_chemistry_from_excel,
+    get_default_chemistry,
     solve_blend_with_compensation, calculate_cost_breakdown,
     quality_checks, quality_table, redistribute_adjustment,
     what_if_analysis, compute_achieved,
@@ -73,6 +73,90 @@ hr{border-color:#263640!important}.footer{margin-top:1.5rem;border-top:1px solid
 GROUP_ORDER=["Iron_ore","Flux","Recycle","Fuel"]
 GROUP_LABEL={"Iron_ore":"Iron Ore","Flux":"Flux","Recycle":"Recycle","Fuel":"Fuel"}
 GROUP_COLORS={"Iron_ore":"#4d8ed1","Flux":"#43bf7a","Recycle":"#e7a73c","Fuel":"#dd5b50"}
+
+# -----------------------------------------------------------------------------
+# EXCEL LOADER — CHEMISTRY / TECHNICAL DATA ONLY
+# -----------------------------------------------------------------------------
+def load_chemistry_only_from_excel(uploaded_file):
+    """
+    Load the master chemistry Excel file.
+
+    The Excel file contains only master-data fields:
+      Material, Group, chemistry values and Tech_Min / Tech_Max.
+
+    Commercial / daily operational inputs are deliberately created here
+    as dashboard inputs and are NOT required in the Excel file:
+      Price_Rs_t, Available_Tonnes
+
+    Availability is controlled separately by the dashboard toggle.
+    """
+    df = pd.read_excel(uploaded_file)
+
+    # Normalize column names so small Excel formatting differences do not
+    # immediately break the upload.
+    df.columns = (
+        df.columns.astype(str)
+        .str.strip()
+        .str.replace(r"\s+", "_", regex=True)
+    )
+
+    required_columns = [
+        "Material", "Group",
+        "Fe", "SiO2", "Al2O3", "CaO", "MgO", "LOI",
+        "Tech_Min", "Tech_Max"
+    ]
+
+    missing = [c for c in required_columns if c not in df.columns]
+    if missing:
+        raise ValueError(
+            "Excel missing required chemistry/technical columns: "
+            + ", ".join(missing)
+            + "\n\nRequired columns are: "
+            + ", ".join(required_columns)
+        )
+
+    # Ignore any extra columns in the uploaded workbook.
+    df = df[required_columns].copy()
+
+    df["Material"] = df["Material"].astype(str).str.strip()
+    df["Group"] = df["Group"].astype(str).str.strip()
+
+    if df["Material"].duplicated().any():
+        duplicates = df.loc[df["Material"].duplicated(), "Material"].tolist()
+        raise ValueError(
+            "Duplicate material names found in Excel: "
+            + ", ".join(duplicates)
+        )
+
+    df = df.set_index("Material")
+
+    # These are intentionally NOT read from Excel.
+    # The user enters them in the Streamlit dashboard.
+    df["Price_Rs_t"] = 0.0
+    df["Available_Tonnes"] = 0.0
+
+    numeric_columns = [
+        "Fe", "SiO2", "Al2O3", "CaO", "MgO", "LOI",
+        "Tech_Min", "Tech_Max",
+        "Price_Rs_t", "Available_Tonnes"
+    ]
+
+    for col in numeric_columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    invalid_numeric = [
+        col for col in numeric_columns
+        if df[col].isna().any()
+    ]
+
+    if invalid_numeric:
+        raise ValueError(
+            "Invalid or blank numeric values found in: "
+            + ", ".join(invalid_numeric)
+            + ". Please check the Excel chemistry data."
+        )
+
+    return df
 
 # -----------------------------------------------------------------------------
 # STATE
@@ -272,7 +356,7 @@ def dashboard():
         up=st.file_uploader("Master chemistry Excel",type=["xlsx"],label_visibility="collapsed",key="dashboard_upload")
         if up:
             try:
-                loaded=load_chemistry_from_excel(up)
+                loaded=load_chemistry_only_from_excel(up)
                 if st.button("Activate uploaded chemistry",use_container_width=True): set_dataset(loaded,"Uploaded • "+up.name);st.rerun()
             except Exception as e: st.error(str(e))
     with c3:
@@ -438,7 +522,7 @@ def settings_page():
         st.markdown('<div class="panel"><div class="panel-title">MASTER CHEMISTRY SOURCE</div>',unsafe_allow_html=True);st.markdown(f'<div class="kpi kpi-steel"><div class="kpi-label">ACTIVE SOURCE</div><div class="kpi-value" style="font-size:1rem">{st.session_state.source_name}</div><div class="kpi-sub">{len(st.session_state.df)} materials loaded</div></div>',unsafe_allow_html=True);up=st.file_uploader("Upload master chemistry Excel",type=["xlsx"],key="settings_upload")
         if up:
             try:
-                loaded=load_chemistry_from_excel(up)
+                loaded=load_chemistry_only_from_excel(up)
                 if st.button("ACTIVATE UPLOADED EXCEL",type="primary",use_container_width=True):set_dataset(loaded,"Uploaded • "+up.name);st.rerun()
             except Exception as e:st.error(str(e))
         st.markdown('</div>',unsafe_allow_html=True)
